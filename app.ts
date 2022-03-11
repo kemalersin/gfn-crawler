@@ -30,14 +30,14 @@ const queue = Queue({ results: [] });
 let games: Array<Game> = [];
 
 const transformGameData = (data: any): Game => {
-  if (data.cover) data.cover = data.cover.url;
+  if (data.cover) data.cover = data.cover.image_id;
 
   if (data.genres)
     data.genres = <Array<any>>data.genres.map((genre: any) => genre.name);
 
   if (data.screenshots)
     data.screenshots = <Array<any>>(
-      data.screenshots.map((screenshot: any) => screenshot.url)
+      data.screenshots.map((screenshot: any) => screenshot.image_id)
     );
 
   if (data.websites) data.websites = <Array<any>>data.websites
@@ -74,7 +74,7 @@ const crawler = new Crawler({
             setTimeout(() => {
               igdb
                 .fields(
-                  "id, name, cover.url, genres.name, websites.category, websites.url, screenshots.url"
+                  "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
                 )
                 .search(name)
                 .limit(1)
