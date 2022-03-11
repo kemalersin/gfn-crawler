@@ -8,26 +8,12 @@ env.config();
 
 interface Game {
   id?: number;
-  name?: string;
-  cover?: {
-    id: number;
-    url: string;
-  };
-  genres?: [
-    {
-      id: number;
-      name: string;
-    }
-  ];
-  screenshots?: [
-    {
-      id: number;
-      url: string;
-    }
-  ];
+  name: string;
+  cover?: string;
+  genres?: Array<string>;
+  screenshots?: Array<string>;
   websites?: [
     {
-      id: number;
       category: number;
       url: string;
     }
@@ -42,6 +28,27 @@ const igdb: any = IGDB(
 const queue = Queue({ results: [] });
 
 let games: Array<Game> = [];
+
+const transformGameData = (data: any): Game => {
+  if (data.cover) data.cover = data.cover.url;
+
+  if (data.genres)
+    data.genres = <Array<any>>data.genres.map((genre: any) => genre.name);
+
+  if (data.screenshots)
+    data.screenshots = <Array<any>>(
+      data.screenshots.map((screenshot: any) => screenshot.url)
+    );
+
+  if (data.websites) data.websites = <Array<any>>data.websites
+      .filter((website: any) => [13, 16].includes(website.category))
+      .map((website: any) => ({
+        category: website.category,
+        url: website.url,
+      }));
+
+  return <Game>data;
+};
 
 const crawler = new Crawler({
   callback: (
@@ -76,7 +83,9 @@ const crawler = new Crawler({
                   console.log(name);
 
                   games.push(
-                    !!game.data.length ? <Game>game.data[0] : { name }
+                    !!game.data.length
+                      ? transformGameData(<Game>game.data[0])
+                      : { name }
                   );
 
                   cb();
@@ -87,11 +96,9 @@ const crawler = new Crawler({
       );
 
       queue.start((err: any) => {
-        if (err) {
-          throw err;
-        }
+        if (err) throw err;
 
-        fs.writeFileSync("games.json", JSON.stringify(games));        
+        fs.writeFileSync("games.json", JSON.stringify(games));
       });
     }
 
