@@ -40,12 +40,14 @@ const transformGameData = (data: any): Game => {
       data.screenshots.map((screenshot: any) => screenshot.image_id)
     );
 
-  if (data.websites) data.websites = <Array<any>>data.websites
-      .filter((website: any) => [13, 16].includes(website.category))
-      .map((website: any) => ({
-        category: website.category,
-        url: website.url,
-      }));
+  if (data.websites)
+    data.websites = <Array<any>>(
+      data.websites
+        .filter((website: any) => [13, 16].includes(website.category))
+        .map((website: any) =>
+          (({ category, url }) => ({ category, url }))(website)
+        )
+    );
 
   return <Game>data;
 };
