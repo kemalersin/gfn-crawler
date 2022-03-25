@@ -64,38 +64,44 @@ const crawler = new Crawler({
       const $: any = res.$;
 
       let n: number = 0;
+      let scrapedGames: Array<string> = [];
 
-      $(".gameName.freestyle.optimal").each(
-        async (_idx: Number, el: HTMLElement) => {
-          const name: string = $(el)
-            .text()
-            .trim()
-            .replace(/ *\([^)]*\) */g, "");
+      $(".gameName").each(async (_idx: Number, el: HTMLElement) => {
+        const name: string = $(el)
+          .text()
+          .trim()
+          .replace(/ *\([^)]*\) */g, "")
+          .replace(/\*\s*$/, "");
 
-          queue.push((cb: any) => {
-            setTimeout(() => {
-              igdb
-                .fields(
-                  "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
-                )
-                .search(name)
-                .limit(1)
-                .request("/games")
-                .then((game: any) => {
-                  console.log(name);
-
-                  games.push(
-                    !!game.data.length
-                      ? transformGameData(<Game>game.data[0])
-                      : { name }
-                  );
-
-                  cb();
-                });
-            }, 250 * ++n);
-          });
+        if (scrapedGames.includes(name)) {
+          return;
         }
-      );
+
+        scrapedGames.push(name);
+
+        queue.push((cb: any) => {
+          setTimeout(() => {
+            igdb
+              .fields(
+                "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
+              )
+              .search(name)
+              .limit(1)
+              .request("/games")
+              .then((game: any) => {
+                console.log(name);                
+
+                games.push(
+                  !!game.data.length
+                    ? transformGameData(<Game>game.data[0])
+                    : { name }
+                );
+
+                cb();
+              });
+          }, 250 * ++n);
+        });
+      });
 
       queue.start((err: any) => {
         if (err) throw err;
