@@ -1,7 +1,7 @@
 import fs from "fs";
 import env from "dotenv";
 import Queue from "queue";
-import Crawler from "crawler";
+import puppeteer from "puppeteer";
 import IGDB from "igdb-api-node";
 
 env.config();
@@ -24,10 +24,6 @@ const igdb: any = IGDB(
   process.env.IGDB_CLIENT_ID,
   process.env.IGDB_ACCESS_TOKEN
 );
-
-const queue = Queue({ results: [] });
-
-let games: Array<Game> = [];
 
 const transformGameData = (data: any): Game => {
   if (data.cover) data.cover = data.cover.image_id;
@@ -52,72 +48,71 @@ const transformGameData = (data: any): Game => {
   return <Game>data;
 };
 
-const crawler = new Crawler({
-  callback: (
-    error: Error,
-    res: Crawler.CrawlerRequestOptions,
-    done: Function
-  ) => {
-    if (error) {
-      console.log(error);
-    } else {
-      const $: any = res.$;
+(async () => {
+  const browser = await puppeteer.launch({ headless: false });
+  const page = await browser.newPage();
 
-      let n: number = 0;
-      let scrapedGameNames: Array<string> = [];
-      let fetchedGameNames: Array<string> = [];
+  await page.goto("https://www.nvidia.com/en-us/geforce-now/games/");
 
-      $(".gameName:not(.optimal-application-settings)").each(
-        async (_idx: Number, el: HTMLElement) => {
-          const name: string = $(el)
-            .text()
-            .trim()
-            .replace(/ *\([^)]*\) */g, "")
-            .replace(/\*\s*$/, "");
+  const scrapedGameNames: any = await page.evaluate(() => {
+    const list: Array<string> = [];
+    const gameNames: NodeListOf<HTMLElement> = document.querySelectorAll(".game-name");
 
-          if (scrapedGameNames.includes(name)) {
-            return;
-          }
+    for (const gameName of gameNames) {
+      const name: string = gameName.innerText
+        .trim()
+        .replace(/ *\([^)]*\) */g, "")
+        .replace(/\*\s*$/, "");
 
-          scrapedGameNames.push(name);
+      if (list.includes(name)) {
+        return;
+      }
 
-          queue.push((cb: any) => {
-            setTimeout(() => {
-              igdb
-                .fields(
-                  "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
-                )
-                .search(name)
-                .limit(1)
-                .request("/games")
-                .then((game: any) => {
-                  const fetchedGame: Game = !!game.data.length
-                    ? transformGameData(<Game>game.data[0])
-                    : { name };
-
-                  if (!fetchedGameNames.includes(fetchedGame.name)) {
-                    console.log(name);
-
-                    games.push(fetchedGame);
-                    fetchedGameNames.push(fetchedGame.name);
-                  }
-
-                  cb();
-                });
-            }, 250 * ++n);
-          });
-        }
-      );
-
-      queue.start((err: any) => {
-        if (err) throw err;
-
-        fs.writeFileSync("games.json", JSON.stringify(games));
-      });
+      list.push(name);
     }
 
-    done();
-  },
-});
+    return list;
+  });
 
-crawler.queue("https://www.nvidia.com/en-us/geforce/geforce-experience/games");
+  let n: number = 0;
+  let games: Array<Game> = [];
+  let fetchedGameNames: Array<string> = [];
+
+  const queue = Queue({ results: [] });
+
+  scrapedGameNames.forEach((name: string) => {
+    queue.push((cb: any) => {
+      setTimeout(() => {
+        igdb
+          .fields(
+            "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
+          )
+          .search(name)
+          .limit(1)
+          .request("/games")
+          .then((game: any) => {
+            const fetchedGame: Game = !!game.data.length
+              ? transformGameData(<Game>game.data[0])
+              : { name };
+
+            if (!fetchedGameNames.includes(fetchedGame.name)) {
+              console.log(name);
+
+              games.push(fetchedGame);
+              fetchedGameNames.push(fetchedGame.name);
+            }
+
+            cb();
+          });
+      }, 250 * ++n);
+    });
+  });
+
+  queue.start((err: any) => {
+    if (err) throw err;
+
+    fs.writeFileSync("games.json", JSON.stringify(games));
+  });  
+
+  await browser.close();
+})();
