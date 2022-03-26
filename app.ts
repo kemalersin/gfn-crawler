@@ -61,8 +61,9 @@ const transformGameData = (data: any): Game => {
     for (const gameName of gameNames) {
       const name: string = gameName.innerText
         .trim()
-        .replace(/ *\([^)]*\) */g, "")
-        .replace(/\*\s*$/, "");
+        .replace(/®/, "")
+        .replace(/\*\s*$/, "")
+        .replace(/ *\([^)]*\) */g, "");
 
       if (list.includes(name)) {
         return;
