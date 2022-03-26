@@ -64,44 +64,50 @@ const crawler = new Crawler({
       const $: any = res.$;
 
       let n: number = 0;
-      let scrapedGames: Array<string> = [];
+      let scrapedGameNames: Array<string> = [];
+      let fetchedGameNames: Array<string> = [];
 
-      $(".gameName").each(async (_idx: Number, el: HTMLElement) => {
-        const name: string = $(el)
-          .text()
-          .trim()
-          .replace(/ *\([^)]*\) */g, "")
-          .replace(/\*\s*$/, "");
+      $(".gameName:not(.optimal-application-settings)").each(
+        async (_idx: Number, el: HTMLElement) => {
+          const name: string = $(el)
+            .text()
+            .trim()
+            .replace(/ *\([^)]*\) */g, "")
+            .replace(/\*\s*$/, "");
 
-        if (scrapedGames.includes(name)) {
-          return;
-        }
+          if (scrapedGameNames.includes(name)) {
+            return;
+          }
 
-        scrapedGames.push(name);
+          scrapedGameNames.push(name);
 
-        queue.push((cb: any) => {
-          setTimeout(() => {
-            igdb
-              .fields(
-                "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
-              )
-              .search(name)
-              .limit(1)
-              .request("/games")
-              .then((game: any) => {
-                console.log(name);                
-
-                games.push(
-                  !!game.data.length
+          queue.push((cb: any) => {
+            setTimeout(() => {
+              igdb
+                .fields(
+                  "id, name, cover.image_id, genres.name, websites.category, websites.url, screenshots.image_id"
+                )
+                .search(name)
+                .limit(1)
+                .request("/games")
+                .then((game: any) => {
+                  const fetchedGame: Game = !!game.data.length
                     ? transformGameData(<Game>game.data[0])
-                    : { name }
-                );
+                    : { name };
 
-                cb();
-              });
-          }, 250 * ++n);
-        });
-      });
+                  if (!fetchedGameNames.includes(fetchedGame.name)) {
+                    console.log(name);
+
+                    games.push(fetchedGame);
+                    fetchedGameNames.push(fetchedGame.name);
+                  }
+
+                  cb();
+                });
+            }, 250 * ++n);
+          });
+        }
+      );
 
       queue.start((err: any) => {
         if (err) throw err;
