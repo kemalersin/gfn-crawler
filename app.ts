@@ -105,7 +105,7 @@ const transformGameData = (data: any): Game => {
 
             cb();
           });
-      }, 250 * ++n);
+      }, 251 * n++);
     });
   });
 
